@@ -10,14 +10,14 @@ import (
 )
 
 func main() {
-	// Определяем количество мин (1-2)
+	// Determine the number of mines (1-2)
 	minesCount := rand.Intn(2) + 1
-	// Создаем поле
+	// Create a field
 	field := fillSquare(minesCount)
 	var userPosition int
 	var openPoints []int
 	var availablePoints = [9]int{11, 12, 13, 21, 22, 23, 31, 32, 33}
-	userMsg := ""
+	userMsg := "" // Since the console is cleared at the beginning of each cycle, the warning is displayed at the beginning of the next cycle
 	for {
 		clearConsole()
 		if userMsg != "" {
@@ -60,15 +60,15 @@ func main() {
 
 func fillSquare(minesCount int) [3][3]int {
 	field := [3][3]int{}
-	// Определяем их расположение внутри поля 3x3
-	// Если у нас есть поле NxN, где столбец i и строка j расположение первой мины,
-	// то у второй k, l, где k != i && l != j
+	// Determine their location within a 3x3 field
+	// If we have a NxN field, where column i and row j are the location of the first mine,
+	// then the second has k, n, where k != i && n != j
 	x1, y1 := rand.Intn(3), rand.Intn(3)
 	var x2 int
 	var y2 int
 	if minesCount == 2 {
-		// Идём влево, чтобы при попадании в отрицательную область инвертировать её в положительную.
-		// Т.е. рассматриваем выход за левую границу, как "вход" на поле с правой границы
+		// Go to the left so that when we get into the negative area, we invert it into a positive one.
+		// That is, we consider going beyond the left border as an "entrance" to the field from the right border
 		x2, y2 = x1-(rand.Intn(2)+1), y1-(rand.Intn(2)+1)
 		if x2 < 0 {
 			x2 += 3
@@ -77,22 +77,22 @@ func fillSquare(minesCount int) [3][3]int {
 			y2 += 3
 		}
 	}
-	// Мина = -3
-	// Закрытая ячейка без мины = (0, 2)
-	// При открытии ячейки: 0 -> -10, 1 -> -1, 2 -> -2
+	// Mine = -3
+	// Closed cell without mine = (0, 2)
+	// When cell is opened: 0 -> -10, 1 -> -1, 2 -> -2
 
-	// Заполнять будем построчно, каждый вложенный массив - 1 строка поля, начиная с нижнего
+	// We will fill it line by line, each nested array is 1 line of the field, starting from the bottom
 	for i := range field {
 		for j := range field[i] {
 			if (i == x1 && j == y1) || (minesCount == 2 && (i == x2 && j == y2)) {
 				field[i][j] = -3
 			} else {
-				field[i][j] = 0 // Предварительно заполняем нулями, т.к. пока ещё не расставили мины
+				field[i][j] = 0 // Pre-fill with zeros, because in the current cycle we do not know the exact location of the mines
 			}
 		}
 	}
 
-	// Теперь для каждого элемента находим количество мин в его периметре
+	// Now for each element we find the number of mines in its perimeter
 	wg := sync.WaitGroup{}
 	for i := range field {
 		for j := range field[i] {
@@ -142,7 +142,7 @@ func printField(field [3][3]int) {
 				} else {
 					field[i][j] = -field[i][j]
 				}
-				val = strconv.Itoa(field[i][j]) // Преобразуем int к string
+				val = strconv.Itoa(field[i][j]) // int -> string
 			} else {
 				val = "?"
 			}
