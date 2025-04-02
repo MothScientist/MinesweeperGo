@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"sync"
 )
@@ -52,6 +53,7 @@ func main() {
 		if len(openPoints) == len(availablePoints)-minesCount {
 			clearConsole()
 			fmt.Println("Congratulation!")
+			printOriginalField(field)
 			break
 		}
 	}
@@ -59,11 +61,17 @@ func main() {
 }
 
 func fillSquare(minesCount int) [3][3]int {
-	field := [3][3]int{}
+	field := [3][3]int{
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+	}
+	var minesPositions [][2]int
 	// Determine their location within a 3x3 field
 	// If we have a NxN field, where column i and row j are the location of the first mine,
 	// then the second has k, n, where k != i && n != j
 	x1, y1 := rand.Intn(3), rand.Intn(3)
+	minesPositions = append(minesPositions, [2]int{x1, y1})
 	var x2 int
 	var y2 int
 	if minesCount == 2 {
@@ -76,47 +84,46 @@ func fillSquare(minesCount int) [3][3]int {
 		if y2 < 0 {
 			y2 += 3
 		}
+		minesPositions = append(minesPositions, [2]int{x2, y2})
 	}
+
 	// Mine = -3
 	// Closed cell without mine = (0, 2)
 	// When cell is opened: 0 -> -10, 1 -> -1, 2 -> -2
 
-	// We will fill it line by line, each nested array is 1 line of the field, starting from the bottom
-	for i := range field {
-		for j := range field[i] {
-			if (i == x1 && j == y1) || (minesCount == 2 && (i == x2 && j == y2)) {
-				field[i][j] = -3
-			} else {
-				field[i][j] = 0 // Pre-fill with zeros, because in the current cycle we do not know the exact location of the mines
-			}
-		}
+	// First, indicate the location of the mines separately.
+	for i := range minesPositions {
+		field[minesPositions[i][0]][minesPositions[i][1]] = -3
 	}
 
-	// Now for each element we find the number of mines in its perimeter
-	wg := sync.WaitGroup{}
-	for i := range field {
-		for j := range field[i] {
-			if field[i][j] != -3 {
-				wg.Add(1)
-				go searchMines(&field, i, j, &wg)
-			}
-		}
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	// Now you can run goroutines in the same cycle as above
+	for i := range minesPositions {
+		wg.Add(1)
+		go searchMines(&field, minesPositions[i], &wg, &mutex)
 	}
 	wg.Wait()
+
 
 	return field
 }
 
-func searchMines(field *[3][3]int, i int, j int, wg *sync.WaitGroup) {
+// Filling the fields with a number showing the number of mines in its perimeter
+func searchMines(field *[3][3]int, pos [2]int, wg *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wg.Done()
 	for k := -1; k < 2; k++ {
 		for l := -1; l < 2; l++ {
-			searchX := i + k
-			searchY := j + l
+			searchX := pos[0] + k
+			searchY := pos[1] + l
 			if searchX < 0 || searchX > 2 || searchY < 0 || searchY > 2 {
 				continue
-			} else if field[searchX][searchY] == -3 {
-				field[i][j] += 1
+			} else if field[searchX][searchY] != -3 {
+				// (about != -3) Don`t forget that in this condition we can stumble upon not only the current mine,
+				// but also another one located within the perimeter of the current one
+				mutex.Lock() // Before making changes, be sure to block access to shared data
+				field[searchX][searchY]++
+				mutex.Unlock() // Can't use defer because we are in a loop - it will lead to a deadlock
 			}
 		}
 	}
@@ -153,10 +160,8 @@ func printField(field [3][3]int) {
 }
 
 func validate(availablePoints [9]int, userPosition int, openPoints []int) string {
-	for _, val := range openPoints {
-		if userPosition == val {
-			return "This point opened"
-		}
+	if slices.Contains(openPoints, userPosition) {
+		return "This point opened"
 	}
 	for _, val := range availablePoints {
 		if userPosition == val {
@@ -166,6 +171,7 @@ func validate(availablePoints [9]int, userPosition int, openPoints []int) string
 	return "Not available point"
 }
 
+// Transform the field after the user opens a new field without a mine
 func changeField(field *[3][3]int, i int, j int) {
 	if field[i][j] == 0 {
 		field[i][j] = -10
@@ -174,6 +180,7 @@ func changeField(field *[3][3]int, i int, j int) {
 	}
 }
 
+// Displays the location of mines on the map to the user at the end of the game
 func printOriginalField(field [3][3]int) {
 	for i := range field {
 		for j := range field[i] {
