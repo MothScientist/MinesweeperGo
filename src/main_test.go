@@ -31,7 +31,7 @@ func TestFillSquare(t *testing.T) {
 			}
 		}
 	}
-	
+
 	if minesFound != minesCount {
 		t.Errorf("minesFound != minesCount. minesFound: %d, , minesCount: %d", minesFound, minesCount)
 	}
