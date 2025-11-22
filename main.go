@@ -14,25 +14,25 @@ func main() {
 	// Determine the number of mines (1-2)
 	minesCount := rand.Intn(2) + 1
 	// Create a field
-	field := fillSquare(minesCount)
+	field := FillSquare(minesCount)
 	var userPosition int
 	var openPoints []int
 	var availablePoints = [9]int{11, 12, 13, 21, 22, 23, 31, 32, 33}
 	userMsg := "" // Since the console is cleared at the beginning of each cycle, the warning is displayed at the beginning of the next cycle
 	for {
-		clearConsole()
+		ClearConsole()
 		if userMsg != "" {
 			fmt.Println(userMsg)
 			userMsg = ""
 		}
-		printField(field)
+		PrintField(field)
 		fmt.Println("Enter position in format XY, example 11/23/31 etc.")
 		_, err := fmt.Fscan(os.Stdin, &userPosition)
 		if err != nil {
 			return
 		}
 
-		warning := validate(availablePoints, userPosition, openPoints)
+		warning := Validate(availablePoints, userPosition, openPoints)
 		if warning != "" {
 			userMsg = warning
 			continue
@@ -42,25 +42,25 @@ func main() {
 
 		i, j := userPosition/10-1, userPosition%10-1
 		if field[i][j] == -3 {
-			clearConsole()
+			ClearConsole()
 			fmt.Println("BOOM!")
-			printOriginalField(field)
+			PrintOriginalField(field)
 			break
 		} else {
-			changeField(&field, i, j)
+			ChangeField(&field, i, j)
 		}
 
 		if len(openPoints) == len(availablePoints)-minesCount {
-			clearConsole()
+			ClearConsole()
 			fmt.Println("Congratulation!")
-			printOriginalField(field)
+			PrintOriginalField(field)
 			break
 		}
 	}
 
 }
 
-func fillSquare(minesCount int) [3][3]int {
+func FillSquare(minesCount int) [3][3]int {
 	field := [3][3]int{
 		{0, 0, 0},
 		{0, 0, 0},
@@ -88,7 +88,7 @@ func fillSquare(minesCount int) [3][3]int {
 	}
 
 	// Mine = -3
-	// Closed cell without mine = (0, 2)
+	// Closed cell without mine: 0, 1, 2
 	// When cell is opened: 0 -> -10, 1 -> -1, 2 -> -2
 
 	// First, indicate the location of the mines separately.
@@ -96,22 +96,18 @@ func fillSquare(minesCount int) [3][3]int {
 		field[minesPositions[i][0]][minesPositions[i][1]] = -3
 	}
 
-	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	// Now you can run goroutines in the same cycle as above
 	for i := range minesPositions {
-		wg.Add(1)
-		go searchMines(&field, minesPositions[i], &wg, &mutex)
+		go FillNumbers(&field, minesPositions[i], &mutex)
 	}
-	wg.Wait()
 
 
 	return field
 }
 
-// Filling the fields with a number showing the number of mines in its perimeter
-func searchMines(field *[3][3]int, pos [2]int, wg *sync.WaitGroup, mutex *sync.Mutex) {
-	defer wg.Done()
+// fillNumbers filling the fields with a number showing the number of mines in its perimeter
+func FillNumbers(field *[3][3]int, pos [2]int, mutex *sync.Mutex) {
 	for k := -1; k < 2; k++ {
 		for l := -1; l < 2; l++ {
 			searchX := pos[0] + k
@@ -129,8 +125,8 @@ func searchMines(field *[3][3]int, pos [2]int, wg *sync.WaitGroup, mutex *sync.M
 	}
 }
 
-// Console clearing function
-func clearConsole() {
+// ClearConsole console clearing function
+func ClearConsole() {
 	c := exec.Command("clear")
 	c.Stdout = os.Stdout
 	err := c.Run()
@@ -139,7 +135,7 @@ func clearConsole() {
 	}
 }
 
-func printField(field [3][3]int) {
+func PrintField(field [3][3]int) {
 	var val string
 	for i := range len(field) {
 		for j := range field[i] {
@@ -159,7 +155,7 @@ func printField(field [3][3]int) {
 	}
 }
 
-func validate(availablePoints [9]int, userPosition int, openPoints []int) string {
+func Validate(availablePoints [9]int, userPosition int, openPoints []int) string {
 	if slices.Contains(openPoints, userPosition) {
 		return "This point opened"
 	}
@@ -171,8 +167,8 @@ func validate(availablePoints [9]int, userPosition int, openPoints []int) string
 	return "Not available point"
 }
 
-// Transform the field after the user opens a new field without a mine
-func changeField(field *[3][3]int, i int, j int) {
+// ChangeField transform the field after the user opens a new field without a mine
+func ChangeField(field *[3][3]int, i int, j int) {
 	if field[i][j] == 0 {
 		field[i][j] = -10
 	} else if field[i][j] > 0 {
@@ -180,8 +176,8 @@ func changeField(field *[3][3]int, i int, j int) {
 	}
 }
 
-// Displays the location of mines on the map to the user at the end of the game
-func printOriginalField(field [3][3]int) {
+// PrintOriginalField displays the location of mines on the map to the user at the end of the game
+func PrintOriginalField(field [3][3]int) {
 	for i := range field {
 		for j := range field[i] {
 			if field[i][j] == -3 {
